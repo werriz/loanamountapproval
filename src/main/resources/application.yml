@@ -1,0 +1,14 @@
+spring:
+  banner: 'banner.txt'
+  output:
+    ansi:
+      enabled: ALWAYS
+
+loan:
+  approval:
+    external:
+      host: 'localhost:8081'
+      managers:
+        uri: '/managers'
+      customers:
+        uri: '/customers'
