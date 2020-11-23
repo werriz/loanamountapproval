@@ -1,7 +1,6 @@
 package org.jurijz.loanamountapproval.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.jurijz.loanamountapproval.converter.LoanRequestConverter;
 import org.jurijz.loanamountapproval.domain.LoanRequest;
@@ -15,10 +14,7 @@ import org.jurijz.loanamountapproval.exception.CustomerLoanApprovalException;
 import org.jurijz.loanamountapproval.exception.ManagerApprovalException;
 import org.jurijz.loanamountapproval.repository.LoanRequestLogsCache;
 import org.jurijz.loanamountapproval.repository.LoanRequestsCache;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -34,12 +30,14 @@ public class LoanRequestService {
     private final LoanRequestsCache loanRequestsCache;
     private final LoanRequestLogsCache loanRequestLogsCache;
     private final LoanRequestConverter loanRequestConverter;
-    private final WebClient webClient;
-    @Value("${loan.approval.external.managers.uri}")
-    private final String managersUri;
-    @Value("${loan.approval.external.customers.uri}")
-    private final String customersUri;
+    private final LoanExternalService loanExternalService;
 
+    /**
+     * Process requests received from loan preparators, stores in cache and then send manager a notification.
+     * @param requests List<LoanRequestDto> list of requests
+     * @throws CustomerLoanApprovalException exception thrown after all request processed and if any request has already
+     * pending in cache
+     */
     public void processRequests(final List<LoanRequestDto> requests) {
         final List<String> failedRequests = new ArrayList<>();
         requests.forEach(dto -> {
@@ -51,7 +49,7 @@ public class LoanRequestService {
             } else {
                 final LoanRequest loanRequest = loanRequestsCache.add(loanRequestConverter.convert(dto));
 
-                loanRequest.getManagerApprovals().forEach(managerApproval -> sendToManager(
+                loanRequest.getManagerApprovals().forEach(managerApproval -> loanExternalService.sendToManager(
                         createNotificationDto(managerApproval.getUsername(), customerId, loanRequest.getAmount())));
             }
         });
@@ -61,15 +59,20 @@ public class LoanRequestService {
         }
     }
 
+    /**
+     * Process loan request approval received from manager, if all approvals true then sends notification to customer.
+     * @param approvalDto ManagerApprovalDto object containing manager username and customer id
+     * @throws ManagerApprovalException thrown when manager username is not loan requests approvers list
+     */
     public void approveRequest(final ManagerApprovalDto approvalDto) {
         final LoanRequest request = loanRequestsCache.get(approvalDto.getCustomerId());
-        if (!approvalDto.getUsername().equals(request.getCustomerId())) {
+        if (!isRequestApprover(approvalDto.getUsername(), request.getManagerApprovals())) {
             throw new ManagerApprovalException(String.format("Manager %s is not among customer %s approvers.",
                     approvalDto.getUsername(), approvalDto.getUsername()));
         }
         approveByManager(request, approvalDto.getUsername());
         if (hasAllApprovals(request.getManagerApprovals())) {
-            sendToCustomer(createNotificationToCustomer(request.getCustomerId(), request.getAmount()));
+            loanExternalService.sendToCustomer(createNotificationToCustomer(request.getCustomerId(), request.getAmount()));
             loanRequestLogsCache.add(LoanRequestLog.builder()
                     .amount(request.getAmount())
                     .sentToCustomerTime(LocalDateTime.now())
@@ -78,14 +81,8 @@ public class LoanRequestService {
         }
     }
 
-    @SneakyThrows
-    private void sendToManager(final NotificationToManagerDto notificationDto) {
-        log.info("Sending loan info to manager: {}", notificationDto);
-        webClient.post()
-                .uri(managersUri)
-                .body(Mono.just(notificationDto), NotificationToManagerDto.class)
-                .retrieve()
-                .bodyToMono(Void.class);
+    private boolean isRequestApprover(final String username, final Set<ManagerApproval> managerApprovals) {
+        return managerApprovals.stream().anyMatch(managerApproval -> managerApproval.getUsername().equals(username));
     }
 
     private NotificationToManagerDto createNotificationDto(final String username, final String customerId, final BigDecimal amount) {
@@ -103,15 +100,6 @@ public class LoanRequestService {
                 .limit(1)
                 .findFirst()
                 .ifPresent(approval -> approval.setApproved(true));
-    }
-
-    private void sendToCustomer(final NotificationToCustomerDto notificationToCustomerDto) {
-        log.info("Sending approved amount to customer: {}", notificationToCustomerDto);
-        webClient.post()
-                .uri(customersUri)
-                .body(Mono.just(notificationToCustomerDto), NotificationToCustomerDto.class)
-                .retrieve()
-                .bodyToMono(Void.class);
     }
 
     private boolean hasAllApprovals(final Set<ManagerApproval> approvals) {

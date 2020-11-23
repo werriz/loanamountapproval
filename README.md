@@ -1,2 +1,2 @@
 # Loan Amount Approval
-A small loan app for loans
+A small service for loans

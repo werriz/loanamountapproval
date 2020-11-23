@@ -17,11 +17,21 @@ public class LoanRequestLogsCache {
 
     private final Map<LocalDateTime, List<LoanRequestLog>> cache = new HashMap<>();
 
+    /**
+     * Stores log object in cache.
+     * @param loanRequestLog LoanRequestLog object
+     */
     public void add(final LoanRequestLog loanRequestLog) {
         final LocalDateTime logHour = loanRequestLog.getSentToCustomerTime().truncatedTo(ChronoUnit.HOURS);
         cache.computeIfAbsent(logHour, key -> new ArrayList<>()).add(loanRequestLog);
     }
 
+    /**
+     * Get logs by time period, both periods should be non-null and start before end.
+     * @param periodStart LocalDateTime start
+     * @param periodEnd LocalDateTime end
+     * @return List<LoanRequestLog> list of logs in period
+     */
     public List<LoanRequestLog> getByPeriod(final LocalDateTime periodStart, final LocalDateTime periodEnd) {
         final LocalDateTime hourStart = periodStart.truncatedTo(ChronoUnit.HOURS);
         final LocalDateTime hourEnd = periodEnd.truncatedTo(ChronoUnit.HOURS);
@@ -31,7 +41,7 @@ public class LoanRequestLogsCache {
                             log.getSentToCustomerTime().isBefore(periodEnd))
                     .collect(Collectors.toList());
         }
-        final List<LocalDateTime> hours = getHoursBetween(periodStart, periodEnd);
+        final List<LocalDateTime> hours = getHoursBetween(hourStart, hourEnd);
 
         return Stream.of(
                 cache.getOrDefault(hourStart, new ArrayList<>()).stream().filter(log -> log.getSentToCustomerTime().isAfter(periodStart)),
@@ -42,12 +52,13 @@ public class LoanRequestLogsCache {
 
     private List<LocalDateTime> getHoursBetween(final LocalDateTime hourStart, final LocalDateTime hourEnd) {
         final List<LocalDateTime> hours = new ArrayList<>();
-        boolean hasNext = true;
-        int i = 0;
-        while (hasNext) {
+        int i = 1;
+        while (true) {
             final LocalDateTime nextHour = hourStart.plusHours(i++);
+            if (nextHour.equals(hourEnd)) {
+                break;
+            }
             hours.add(nextHour);
-            hasNext = !nextHour.equals(hourEnd);
         }
         return hours;
     }

@@ -1,6 +1,5 @@
 package org.jurijz.loanamountapproval.controller;
 
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jurijz.loanamountapproval.domain.LoanApprovalStatistics;
@@ -40,7 +39,6 @@ public class LoanAmountApprovalController {
         loanRequestService.approveRequest(approvalDto);
     }
 
-    @ApiResponse(responseCode = "400", description = "Bad request")
     @GetMapping(path = "/statistics", produces = MediaType.APPLICATION_JSON_VALUE)
     public LoanApprovalStatistics getStatistics(@RequestParam(required = false, name = "periodStart") final String periodStart,
                                                 @RequestParam(required = false, name = "periodEnd") final String periodEnd) {
