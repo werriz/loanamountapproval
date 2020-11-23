@@ -1,0 +1,13 @@
+bin/
+build/
+out/
+
+# Local configuration file (sdk path, etc)
+local.properties
+.gradle/
+/jniLibs/
+/resources/
+
+# Intellij project files
+*.ipr
+.idea/
