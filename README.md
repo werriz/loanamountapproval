@@ -37,6 +37,6 @@ One unit test using MockMvc to test rest calls to controller.
 ## Built With
 * [SpringBoot](https://spring.io/projects/spring-boot) - Framework for Spring framework
 * [Gradle](https://gradle.org/) - Dependency Management
-* [OpenApi](https://swagger.io/specification/) - Used to generate RSS Feeds
+* [OpenApi](https://swagger.io/specification/) - Tool that can help you design, build, document and consume REST APIs
 * [Lombok](https://projectlombok.org) - Server-side Java template engine
 * [Spring WebFlux](https://docs.spring.io/spring-framework/docs/current/reference/html/web-reactive.html) - Reactive Spring library
